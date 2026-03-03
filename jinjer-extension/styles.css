@@ -1,0 +1,70 @@
+:root {
+  --jinjer-row-bg: #fff3f3;
+  --jinjer-row-border: #dc2626;
+  --jinjer-cell-bg: #ffe3e3;
+  --jinjer-cell-border: #ef4444;
+  --jinjer-cell-shadow: #b91c1c;
+  --jinjer-summary-bg: #ffd6d6;
+  --jinjer-modal-hover-bg: #e6f2ff;
+  --jinjer-modal-hover-border: #4a90d6;
+  --jinjer-modal-title-z: 10100;
+  --jinjer-modal-close-z: 10101;
+}
+
+/* 行単位の異常ハイライト */
+.jinjer-error-row {
+  background-color: var(--jinjer-row-bg) !important;
+  border-left: 5px solid var(--jinjer-row-border) !important;
+}
+
+/* エラー行の背景色を透過させ、行全体の赤色が見えるようにします */
+.jinjer-error-row td {
+  background-color: transparent !important;
+}
+
+/* セル単位の異常ハイライト */
+.jinjer-error-cell {
+  background-color: var(--jinjer-cell-bg) !important;
+  border: 2px solid var(--jinjer-cell-border) !important;
+  box-shadow: inset 0 0 0 1px var(--jinjer-cell-shadow) !important;
+  font-weight: 600 !important;
+}
+
+/* サマリー項目の異常ハイライト */
+.jinjer-summary-error {
+  background-color: var(--jinjer-summary-bg) !important;
+  border-radius: 4px !important;
+  padding: 2px !important;
+}
+
+/* サマリー領域が切れないように表示領域を拡張 */
+.employee_data_info,
+.employee_schedule_block,
+#pScroll {
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* サマリーに重なる独自スクロールレールを非表示 */
+.ps-scrollbar-y-rail,
+.ps-scrollbar-x-rail {
+  display: none !important;
+}
+
+/* モーダルのドラッグ可能領域 */
+.popUpTitle {
+  cursor: move !important;
+  position: relative !important;
+  z-index: var(--jinjer-modal-title-z) !important;
+}
+
+.popUpTitle:hover {
+  background-color: var(--jinjer-modal-hover-bg) !important;
+  border: 2px dashed var(--jinjer-modal-hover-border) !important;
+  cursor: move !important;
+}
+
+.close-modal {
+  position: relative !important;
+  z-index: var(--jinjer-modal-close-z) !important;
+}

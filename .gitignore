@@ -1,5 +1,6 @@
 # Ignore environment variable files and local development configuration
 .env
+system.md
 # directory for local development environment configuration
 .gemini
 .vscode

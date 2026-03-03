@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Jinjer Time Card Helper",
+  "version": "0.0.1",
+  "description": "Parses and highlights potential issues in Jinjer time card tables.",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://kintai.jinjer.biz/staffs/time_cards*"
+      ],
+      "js": [
+        "src/constants.js",
+        "src/utils.js",
+        "src/logger.js",
+        "src/scan-timecards.js",
+        "src/modal-drag.js",
+        "content_script.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
