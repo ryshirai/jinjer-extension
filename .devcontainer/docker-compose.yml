@@ -1,0 +1,45 @@
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      target: dev
+      args:
+        - USER_UID=${LOCAL_UID:-1000}
+        - USER_GID=${LOCAL_GID:-1000}
+    container_name: jinjer-extension-dev
+    networks:
+      - jinjer-extension-net
+    volumes:
+      - ..:/workspace:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace
+    command: sleep infinity
+
+  ai:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      target: ai
+      args:
+        - USER_UID=${LOCAL_UID:-1000}
+        - USER_GID=${LOCAL_GID:-1000}
+    container_name: jinjer-extension-ai
+    networks:
+      - jinjer-extension-net
+    volumes:
+      - ..:/workspace:cached
+      - ai-cache-codex:/home/vscode/.codex
+      - ai-cache-gemini:/home/vscode/.gemini
+      - ~/.gitconfig:/home/vscode/.gitconfig:ro
+      - ~/.config/gh:/home/vscode/.config/gh:ro
+    working_dir: /workspace
+    command: sleep infinity
+
+networks:
+  jinjer-extension-net:
+    driver: bridge
+
+volumes:
+  ai-cache-codex:
+  ai-cache-gemini:

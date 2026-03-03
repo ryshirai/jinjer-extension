@@ -1,0 +1,5 @@
+# Ignore environment variable files and local development configuration
+.env
+# directory for local development environment configuration
+.gemini
+.vscode
