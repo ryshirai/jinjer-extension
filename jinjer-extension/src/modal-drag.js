@@ -5,13 +5,13 @@
     return;
   }
 
-  const { BASE_MODAL_Z_INDEX, DRAG_MODAL_Z_INDEX } = extension.constants;
+  const { SELECTORS, BASE_MODAL_Z_INDEX, DRAG_MODAL_Z_INDEX } = extension.constants;
 
   let activeDrag = null;
   let isDelegatedHandlerBound = false;
 
   const updateModalStacking = () => {
-    document.querySelectorAll(".modifyShiftPopupShowWrapper").forEach((modal) => {
+    document.querySelectorAll(SELECTORS.modal.wrapper).forEach((modal) => {
       const zIndex = activeDrag && activeDrag.modal === modal ? DRAG_MODAL_Z_INDEX : BASE_MODAL_Z_INDEX;
       modal.style.setProperty("z-index", zIndex, "important");
     });
@@ -70,16 +70,16 @@
           return;
         }
 
-        if (event.target?.closest?.(".close-modal")) {
+        if (event.target?.closest?.(SELECTORS.modal.closeButton)) {
           return;
         }
 
-        const titleBar = event.target?.closest?.(".popUpTitle");
+        const titleBar = event.target?.closest?.(SELECTORS.modal.titleBar);
         if (!titleBar) {
           return;
         }
 
-        const modal = titleBar.closest(".modifyShiftPopupShowWrapper");
+        const modal = titleBar.closest(SELECTORS.modal.wrapper);
         if (!modal) {
           return;
         }

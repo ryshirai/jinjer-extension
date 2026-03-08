@@ -18,40 +18,15 @@
     return;
   }
 
-  const { scanRows } = extension.scanner;
+  const { startScanMonitoring } = extension.scanner;
   const { updateModalStacking, bindGlobalDragDelegation } = extension.modalDrag;
 
   console.log("Jinjer勤怠チェック拡張を開始しました。");
 
-  // DOM更新が連続したときに、1フレームで1回だけ再走査する。
-  let isScanScheduled = false;
-  const scheduleScan = () => {
-    if (isScanScheduled) {
-      return;
-    }
-
-    isScanScheduled = true;
-    requestAnimationFrame(() => {
-      isScanScheduled = false;
-      scanRows();
+  startScanMonitoring({
+    afterScan: () => {
       updateModalStacking();
       bindGlobalDragDelegation();
-    });
-  };
-
-  // 初回実行
-  scanRows();
-  updateModalStacking();
-  bindGlobalDragDelegation();
-
-  // テーブルやモーダル更新を監視して再評価する。
-  const observer = new MutationObserver(() => {
-    scheduleScan();
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true,
+    },
   });
 })();

@@ -6,10 +6,13 @@
   }
 
   const {
+    TARGET_PATH,
+    SELECTORS,
     STATUS_ANOMALY_PATTERN,
     STATUS_ALWAYS_HIGHLIGHT_PATTERN,
     SUMMARY_LABEL_TO_KEY,
     EPSILON,
+    SELECTOR_WAIT_TIMEOUT_MS,
   } = extension.constants;
 
   const {
@@ -24,17 +27,30 @@
 
   const { logOnce, clear, logSummary, clearSummary } = extension.logger;
 
-  const ROW_SELECTORS = {
-    dateCell: "td.date",
-    statusCell: "td.status",
-    workingTimeCell: 'td.working[data-col="3"]',
-    breakTimeCell: 'td.working[data-col="6"]',
-    shiftTimeElement: "td.shift .time.sb",
-    actualTimeCell: "td.timecard",
-    holidayTdCell: "td.holiday_td",
-    officeCell: 'td[data-col="1"]',
-    wfhCell: 'td[data-col="2"]',
-    holidayCell: "td.holiday",
+  let isMonitoringStarted = false;
+  let isScanScheduled = false;
+  let isScanRunning = false;
+  let warningTimerId = null;
+  let observer = null;
+  let onAfterScan = null;
+
+  const isTargetPage = () => window.location.pathname === TARGET_PATH;
+
+  const getCoreNodes = () => {
+    const rows = document.querySelectorAll(SELECTORS.timecardRows);
+    const summaryBlock = document.querySelector(SELECTORS.summaryBlock);
+    return { rows, summaryBlock };
+  };
+
+  const getMissingSelectors = ({ rows, summaryBlock }) => {
+    const missingSelectors = [];
+    if (rows.length === 0) {
+      missingSelectors.push(SELECTORS.timecardRows);
+    }
+    if (!summaryBlock) {
+      missingSelectors.push(SELECTORS.summaryBlock);
+    }
+    return missingSelectors;
   };
 
   const createRowAggregates = () => ({
@@ -53,18 +69,18 @@
   };
 
   const extractRowElements = (row) => {
-    const actualTimeCell = row.querySelector(ROW_SELECTORS.actualTimeCell);
+    const actualTimeCell = row.querySelector(SELECTORS.row.actualTimeCell);
 
     return {
       row,
-      dateCell: row.querySelector(ROW_SELECTORS.dateCell),
-      statusCell: row.querySelector(ROW_SELECTORS.statusCell),
-      workingTimeCell: row.querySelector(ROW_SELECTORS.workingTimeCell),
-      breakTimeCell: row.querySelector(ROW_SELECTORS.breakTimeCell),
-      shiftTimeElement: row.querySelector(ROW_SELECTORS.shiftTimeElement),
+      dateCell: row.querySelector(SELECTORS.row.dateCell),
+      statusCell: row.querySelector(SELECTORS.row.statusCell),
+      workingTimeCell: row.querySelector(SELECTORS.row.workingTimeCell),
+      breakTimeCell: row.querySelector(SELECTORS.row.breakTimeCell),
+      shiftTimeElement: row.querySelector(SELECTORS.row.shiftTimeElement),
       actualTimeCell,
-      actualTimeElement: actualTimeCell?.querySelector(".time.tc"),
-      holidayTdCell: row.querySelector(ROW_SELECTORS.holidayTdCell),
+      actualTimeElement: actualTimeCell?.querySelector(SELECTORS.row.actualTimeElement),
+      holidayTdCell: row.querySelector(SELECTORS.row.holidayTdCell),
     };
   };
 
@@ -77,10 +93,14 @@
       rowKey: `${dateText}-${index}`,
       statusText,
       hasLateCancellation: statusText.includes("(遅刻取消済)"),
-      shiftStartText: rowElements.shiftTimeElement?.querySelector(".it1")?.textContent?.trim() || "",
-      shiftEndText: rowElements.shiftTimeElement?.querySelector(".it2")?.textContent?.trim() || "",
-      actualStartText: rowElements.actualTimeElement?.querySelector(".it1")?.textContent?.trim() || "",
-      actualEndText: rowElements.actualTimeElement?.querySelector(".it2")?.textContent?.trim() || "",
+      shiftStartText:
+        rowElements.shiftTimeElement?.querySelector(SELECTORS.row.timeStart)?.textContent?.trim() || "",
+      shiftEndText:
+        rowElements.shiftTimeElement?.querySelector(SELECTORS.row.timeEnd)?.textContent?.trim() || "",
+      actualStartText:
+        rowElements.actualTimeElement?.querySelector(SELECTORS.row.timeStart)?.textContent?.trim() || "",
+      actualEndText:
+        rowElements.actualTimeElement?.querySelector(SELECTORS.row.timeEnd)?.textContent?.trim() || "",
       holidayTdText: rowElements.holidayTdCell?.textContent || "",
       workingTimeText: rowElements.workingTimeCell?.textContent || "",
       breakTimeText: rowElements.breakTimeCell?.textContent || "",
@@ -222,9 +242,9 @@
   };
 
   const updateAttendanceAggregates = (row, rowAggregates) => {
-    const officeCell = row.querySelector(ROW_SELECTORS.officeCell);
-    const wfhCell = row.querySelector(ROW_SELECTORS.wfhCell);
-    const holidayCell = row.querySelector(ROW_SELECTORS.holidayCell);
+    const officeCell = row.querySelector(SELECTORS.row.officeCell);
+    const wfhCell = row.querySelector(SELECTORS.row.wfhCell);
+    const holidayCell = row.querySelector(SELECTORS.row.holidayCell);
 
     const hasOfficeAttendance = hasPositiveNumericValue(officeCell?.textContent || "");
     const hasWfhAttendance = hasPositiveNumericValue(wfhCell?.textContent || "");
@@ -249,14 +269,14 @@
   };
 
   const collectSummaryValues = () => {
-    const summaryBlock = document.querySelector(".employee_data_info .employee_schedule_block");
-    const summaryItems = summaryBlock?.querySelectorAll("li") || [];
+    const summaryBlock = document.querySelector(SELECTORS.summaryBlock);
+    const summaryItems = summaryBlock?.querySelectorAll(SELECTORS.summaryItems) || [];
     const summaryValues = new Map();
 
     summaryItems.forEach((item) => {
       item.classList.remove("jinjer-summary-error");
 
-      const headElement = item.querySelector("span.head");
+      const headElement = item.querySelector(SELECTORS.summaryHead);
       const label = normalizeLabel(headElement?.textContent?.trim() || "");
       const valueKey = SUMMARY_LABEL_TO_KEY[label];
       if (!valueKey) {
@@ -340,8 +360,19 @@
   // 2) 各判定を実行
   // 3) 行の結果を反映
   // 4) 最後にサマリー整合性を検証
-  const scanRows = () => {
-    const rows = document.querySelectorAll("tr.page-break");
+  const scanRows = ({ shouldWarnOnMissing = false } = {}) => {
+    const { rows, summaryBlock } = getCoreNodes();
+
+    if (rows.length === 0 || !summaryBlock) {
+      if (shouldWarnOnMissing) {
+        const missingSelectors = getMissingSelectors({ rows, summaryBlock });
+        console.warn(
+          `Jinjer拡張の走査を保留しました。主要セレクタが見つかりません: ${missingSelectors.join(", ")}`,
+        );
+      }
+      return false;
+    }
+
     const rowAggregates = createRowAggregates();
 
     rows.forEach((row, index) => {
@@ -383,12 +414,78 @@
 
     const summaryValues = collectSummaryValues();
     evaluateSummaryValues(summaryValues, rowAggregates);
+    return true;
+  };
+
+  const runScan = ({ shouldWarnOnMissing = false } = {}) => {
+    if (isScanRunning) {
+      return false;
+    }
+
+    isScanRunning = true;
+    try {
+      const didScan = scanRows({ shouldWarnOnMissing });
+      if (didScan && typeof onAfterScan === "function") {
+        onAfterScan();
+      }
+      return didScan;
+    } finally {
+      isScanRunning = false;
+    }
+  };
+
+  const scheduleScan = () => {
+    if (isScanScheduled) {
+      return;
+    }
+
+    isScanScheduled = true;
+    requestAnimationFrame(() => {
+      isScanScheduled = false;
+      runScan();
+    });
+  };
+
+  const startMissingSelectorWarningTimer = () => {
+    if (warningTimerId !== null) {
+      return;
+    }
+
+    warningTimerId = window.setTimeout(() => {
+      warningTimerId = null;
+      runScan({ shouldWarnOnMissing: true });
+    }, SELECTOR_WAIT_TIMEOUT_MS);
+  };
+
+  const startScanMonitoring = ({ afterScan } = {}) => {
+    if (!isTargetPage() || isMonitoringStarted) {
+      return;
+    }
+
+    if (typeof afterScan === "function") {
+      onAfterScan = afterScan;
+    }
+
+    isMonitoringStarted = true;
+    startMissingSelectorWarningTimer();
+    scheduleScan();
+
+    observer = new MutationObserver(() => {
+      scheduleScan();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
   };
 
   window.JINJER_EXTENSION = {
     ...window.JINJER_EXTENSION,
     scanner: {
       scanRows,
+      startScanMonitoring,
     },
   };
 })();
