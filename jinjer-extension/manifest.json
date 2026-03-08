@@ -3,6 +3,10 @@
   "name": "Jinjer Time Card Helper",
   "version": "0.0.1",
   "description": "Parses and highlights potential issues in Jinjer time card tables.",
+  "permissions": [
+    "storage"
+  ],
+  "options_page": "options.html",
   "content_scripts": [
     {
       "matches": [

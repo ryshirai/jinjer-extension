@@ -1,4 +1,24 @@
 (() => {
+  const COLOR_SETTING_KEYS = [
+    "--jinjer-row-bg",
+    "--jinjer-row-border",
+    "--jinjer-cell-bg",
+    "--jinjer-cell-border",
+    "--jinjer-summary-bg",
+  ];
+
+  const applyCustomColors = (settings = {}) => {
+    COLOR_SETTING_KEYS.forEach((cssVarName) => {
+      const value = settings[cssVarName];
+
+      if (typeof value === "string" && value.trim()) {
+        document.documentElement.style.setProperty(cssVarName, value);
+      } else {
+        document.documentElement.style.removeProperty(cssVarName);
+      }
+    });
+  };
+
   // ラベル比較でズレが出ないように、全角/半角コロンと空白を除去する。
   const normalizeLabel = (label) => label.replace(/[：:\s]/g, "");
 
@@ -80,6 +100,8 @@
       parsePaidLeaveDays,
       parsePaidLeaveHoursFromHolidayText,
       hasPositiveNumericValue,
+      COLOR_SETTING_KEYS,
+      applyCustomColors,
     },
   };
 })();
